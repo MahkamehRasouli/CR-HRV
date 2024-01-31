@@ -1,0 +1,111 @@
+echo "# CR-HRV" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin git@github.com:MahkamehRasouli/CR-HRV.git
+git push -u origin main
+
+
+library(dplyr)
+library(tidyr)
+library(zoo)
+
+# Assuming resultsm is your data frame
+resultsm$num <- as.POSIXct(paste(resultsm$Date, resultsm$formatted_time), format="%Y-%m-%d %H:%M:%S")
+resultsm <- resultsm %>% mutate(User = ifelse(User == 0, NA, User))
+
+# Impute missing HRV_RMSSD values based on time, user, and pregnancy month
+resultsm_imputed <- resultsm %>%
+  arrange(User, PregnancyMonth, Date) %>%
+  group_by(User, PregnancyMonth) %>%
+  mutate(HRV_RMSSD_Imputed = zoo::na.approx(HRV_RMSSD_Average, na.rm = FALSE)) %>%
+  ungroup()  # Ungroup to avoid issues with subsequent operations
+
+# Print the head of the imputed resultsm data frame
+print(head(resultsm_imputed))
+
+
+
+library(dplyr)
+library(tidyr)
+library(zoo)
+library(lubridate)
+
+# Assuming resultsm is your data frame
+resultsm <- resultsm %>%
+  mutate(Date_Time = ymd_hms(paste(Date, formatted_time)),
+         User = ifelse(User == 0, NA, User))
+
+# Impute missing HRV_RMSSD values based on time, user, and pregnancy month
+resultsm_imputed <- resultsm %>%
+  arrange(User, PregnancyMonth, Date_Time) %>%
+  group_by(User, PregnancyMonth) %>%
+  mutate(HRV_RMSSD_Imputed = zoo::na.approx(HRV_RMSSD_Average, na.rm = FALSE)) %>%
+  ungroup()  # Ungroup to avoid issues with subsequent operations
+
+# Print the head of the imputed resultsm data frame
+print(head(resultsm_imputed))
+
+
+library(dplyr)
+library(zoo)
+
+# Assuming resultsm is your data frame
+resultsm <- resultsm %>%
+  mutate(Date_Time = as.POSIXct(paste(Date, formatted_time), format="%Y-%m-%d %H:%M:%S"),
+         User = ifelse(User == 0, NA, User))
+
+# Impute missing HRV_RMSSD values based on time, user, and pregnancy month
+resultsm_imputed <- resultsm %>%
+  arrange(User, PregnancyMonth, Date, formatted_time) %>%
+  group_by(User, PregnancyMonth) %>%
+  mutate(HRV_RMSSD_Imputed = zoo::na.approx(HRV_RMSSD_Average, na.rm = FALSE)) %>%
+  ungroup()  # Ungroup to avoid issues with subsequent operations
+
+# Print the head of the imputed resultsm data frame
+print(head(resultsm_imputed))
+
+
+
+```
+
+
+```{r}
+# Assuming resultsm_imputed is your imputed data frame
+set.seed(123)  # for reproducibility
+indices <- sample(1:nrow(resultsm_imputed), nrow(resultsm_imputed) * 0.8)  # 80% for training, 20% for testing
+
+# Split the data
+train_data <- resultsm_imputed[indices, ]
+test_data <- resultsm_imputed[-indices, ]
+
+# Train the imputation model
+imputation_model <- lm(HRV_RMSSD_Average ~ User + PregnancyMonth + Date + formatted_time, data = train_data)
+
+# Impute missing values in the test set
+test_data$HRV_RMSSD_Imputed_Predicted <- predict(imputation_model, newdata = test_data)
+
+# Evaluate the model
+mae <- mean(abs(test_data$HRV_RMSSD_Average - test_data$HRV_RMSSD_Imputed_Predicted))
+mse <- mean((test_data$HRV_RMSSD_Average - test_data$HRV_RMSSD_Imputed_Predicted)^2)
+rmse <- sqrt(mse)
+
+# Print evaluation metrics
+cat("MAE:", mae, "\n")
+cat("MSE:", mse, "\n")
+cat("RMSE:", rmse, "\n")
+
+
+# Remove rows with NA values in HRV_RMSSD_Average or HRV_RMSSD_Imputed_Predicted
+test_data <- test_data[complete.cases(test_data$HRV_RMSSD_Average, test_data$HRV_RMSSD_Imputed_Predicted), ]
+
+# Calculate evaluation metrics
+mae <- mean(abs(test_data$HRV_RMSSD_Average - test_data$HRV_RMSSD_Imputed_Predicted))
+mse <- mean((test_data$HRV_RMSSD_Average - test_data$HRV_RMSSD_Imputed_Predicted)^2)
+rmse <- sqrt(mse)
+
+# Print evaluation metrics
+cat("MAE:", mae, "\n")
+cat("MSE:", mse, "\n")
+cat("RMSE:", rmse, "\n")
